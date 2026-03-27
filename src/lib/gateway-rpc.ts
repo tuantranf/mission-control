@@ -387,18 +387,17 @@ export async function callGatewayRpc<T = unknown>(
 }
 
 /**
- * Send a message to a gateway session via the `sessions_send` RPC.
- * Replaces: runOpenClaw(['gateway', 'sessions_send', '--session', key, '--message', msg])
+ * Send a chat message to a gateway session via the `chat.send` RPC.
  */
 export async function gatewaySessionSend(
   sessionKey: string,
   message: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  options?: { config?: GatewayRpcConfig }
+  options?: { config?: GatewayRpcConfig; deliver?: boolean }
 ): Promise<void> {
   await callGatewayRpc(
-    'sessions_send',
-    { sessionKey, message },
+    'chat.send',
+    { sessionKey, message, deliver: options?.deliver ?? false, idempotencyKey: randomUUID() },
     timeoutMs,
     options
   )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
 import { requireRole } from '@/lib/auth'
-import { callOpenClawGateway } from '@/lib/openclaw-gateway'
+import { callGatewayRpc } from '@/lib/gateway-rpc'
 import { db_helpers } from '@/lib/db'
 import { mutationLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
@@ -38,12 +39,12 @@ export async function POST(
 
     let result: unknown
     if (action === 'terminate') {
-      result = await callOpenClawGateway('sessions_kill', { sessionKey: id }, 10_000)
+      result = await callGatewayRpc('sessions.delete', { key: id }, 10_000)
     } else {
       const message = action === 'monitor'
-        ? { type: 'control', action: 'monitor' }
-        : { type: 'control', action: 'pause' }
-      result = await callOpenClawGateway('sessions_send', { sessionKey: id, message }, 10_000)
+        ? JSON.stringify({ type: 'control', action: 'monitor' })
+        : JSON.stringify({ type: 'control', action: 'pause' })
+      result = await callGatewayRpc('chat.send', { sessionKey: id, message, deliver: false, idempotencyKey: randomUUID() }, 10_000)
     }
 
     db_helpers.logActivity(
