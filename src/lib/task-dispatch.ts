@@ -1,6 +1,5 @@
 import { getDatabase, db_helpers } from './db'
-import { runOpenClaw } from './command'
-import { callOpenClawGateway } from './openclaw-gateway'
+import { callOpenClawGateway, gatewayAgentInvoke } from './openclaw-gateway'
 import { eventBus } from './event-bus'
 import { logger } from './logger'
 import { config } from './config'
@@ -466,14 +465,9 @@ export async function runAegisReviews(): Promise<{ ok: boolean; message: string 
           idempotencyKey: `aegis-review-${task.id}-${Date.now()}`,
           deliver: false,
         }
-        const finalResult = await runOpenClaw(
-          ['gateway', 'call', 'agent', '--expect-final', '--timeout', '120000', '--params', JSON.stringify(invokeParams), '--json'],
-          { timeoutMs: 125_000 }
-        )
-        const finalPayload = parseGatewayJson(finalResult.stdout)
-          ?? parseGatewayJson(String((finalResult as any)?.stderr || ''))
+        const finalPayload = await gatewayAgentInvoke(invokeParams, { expectFinal: true, timeoutMs: 125_000 }) as any
         agentResponse = parseAgentResponse(
-          finalPayload?.result ? JSON.stringify(finalPayload.result) : finalResult.stdout
+          finalPayload?.result ? JSON.stringify(finalPayload.result) : JSON.stringify(finalPayload ?? {})
         )
       }
 
@@ -769,7 +763,7 @@ export async function dispatchAssignedTasks(): Promise<{ ok: boolean; message: s
         // Step 1: Invoke via gateway (new session)
         const gatewayAgentId = resolveGatewayAgentId(task)
         const dispatchModel = classifyTaskModel(task)
-        const invokeParams: Record<string, unknown> = {
+        const invokeParams: { message: string; agentId: string; idempotencyKey: string; deliver: boolean; model?: string } = {
           message: prompt,
           agentId: gatewayAgentId,
           idempotencyKey: `task-dispatch-${task.id}-${Date.now()}`,
@@ -782,15 +776,9 @@ export async function dispatchAssignedTasks(): Promise<{ ok: boolean; message: s
         // Use --expect-final to block until the agent completes and returns the full
         // response payload (result.payloads[0].text). The two-step agent → agent.wait
         // pattern only returns lifecycle metadata and never includes the agent's text.
-        const finalResult = await runOpenClaw(
-          ['gateway', 'call', 'agent', '--expect-final', '--timeout', '120000', '--params', JSON.stringify(invokeParams), '--json'],
-          { timeoutMs: 125_000 }
-        )
-        const finalPayload = parseGatewayJson(finalResult.stdout)
-          ?? parseGatewayJson(String((finalResult as any)?.stderr || ''))
-
+        const finalPayload = await gatewayAgentInvoke(invokeParams, { expectFinal: true, timeoutMs: 125_000 }) as any
         agentResponse = parseAgentResponse(
-          finalPayload?.result ? JSON.stringify(finalPayload.result) : finalResult.stdout
+          finalPayload?.result ? JSON.stringify(finalPayload.result) : JSON.stringify(finalPayload ?? {})
         )
         if (!agentResponse.sessionId && finalPayload?.result?.meta?.agentMeta?.sessionId) {
           agentResponse.sessionId = finalPayload.result.meta.agentMeta.sessionId

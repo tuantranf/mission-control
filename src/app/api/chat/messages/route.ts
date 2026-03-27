@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase, db_helpers, Message } from '@/lib/db'
-import { runOpenClaw } from '@/lib/command'
+import { gatewayAgentInvoke, callGatewayRpc } from '@/lib/gateway-rpc'
 import { getAllGatewaySessions } from '@/lib/sessions'
 import { eventBus } from '@/lib/event-bus'
 import { requireRole } from '@/lib/auth'
@@ -515,20 +515,7 @@ export async function POST(request: NextRequest) {
               }
               invokeParams.agentId = openclawAgentId
 
-              const invokeResult = await runOpenClaw(
-                [
-                  'gateway',
-                  'call',
-                  'agent',
-                  '--timeout',
-                  '10000',
-                  '--params',
-                  JSON.stringify(invokeParams),
-                  '--json',
-                ],
-                { timeoutMs: 12000 }
-              )
-              const acceptedPayload = parseGatewayJson(invokeResult.stdout)
+              const acceptedPayload = await gatewayAgentInvoke(invokeParams, { timeoutMs: 12000 }) as any
               forwardInfo.delivered = true
               forwardInfo.session = openclawAgentId || undefined
               if (typeof acceptedPayload?.runId === 'string' && acceptedPayload.runId) {
@@ -536,17 +523,6 @@ export async function POST(request: NextRequest) {
               }
             }
           } catch (err) {
-            // OpenClaw may return accepted JSON on stdout but still emit a late stderr warning.
-            // Treat accepted runs as successful delivery.
-            const maybeStdout = String((err as any)?.stdout || '')
-            const acceptedPayload = parseGatewayJson(maybeStdout)
-            if (maybeStdout.includes('"status": "accepted"') || maybeStdout.includes('"status":"accepted"')) {
-              forwardInfo.delivered = true
-              forwardInfo.session = sessionKey || openclawAgentId || undefined
-              if (typeof acceptedPayload?.runId === 'string' && acceptedPayload.runId) {
-                forwardInfo.runId = acceptedPayload.runId
-              }
-            } else {
               forwardInfo.reason = 'gateway_send_failed'
               logger.error({ err }, 'Failed to forward message via gateway')
 
@@ -567,7 +543,6 @@ export async function POST(request: NextRequest) {
                   logger.error({ err: e }, 'Failed to create gateway failure status reply')
                 }
               }
-            }
           }
 
           // Coordinator mode should always show visible coordinator feedback in thread.
@@ -594,21 +569,11 @@ export async function POST(request: NextRequest) {
             // Best effort: wait briefly and surface completion/error feedback.
             if (forwardInfo.runId) {
               try {
-                const waitResult = await runOpenClaw(
-                  [
-                    'gateway',
-                    'call',
-                    'agent.wait',
-                    '--timeout',
-                    '8000',
-                    '--params',
-                    JSON.stringify({ runId: forwardInfo.runId, timeoutMs: 6000 }),
-                    '--json',
-                  ],
-                  { timeoutMs: 9000 }
+                const waitPayload = await callGatewayRpc<any>(
+                  'agent.wait',
+                  { runId: forwardInfo.runId, timeoutMs: 6000 },
+                  9000,
                 )
-
-                const waitPayload = parseGatewayJson(waitResult.stdout)
                 const waitStatus = String(waitPayload?.status || '').toLowerCase()
                 const toolEvents = extractToolEvents(waitPayload)
 
@@ -687,13 +652,10 @@ export async function POST(request: NextRequest) {
                   }
                 }
               } catch (waitErr) {
-                const maybeWaitStdout = String((waitErr as any)?.stdout || '')
-                const maybeWaitStderr = String((waitErr as any)?.stderr || '')
-                const waitPayload = parseGatewayJson(maybeWaitStdout)
                 const reason =
-                  typeof waitPayload?.error === 'string'
-                    ? waitPayload.error
-                    : (maybeWaitStderr || maybeWaitStdout || 'Unable to read completion status from coordinator runtime.').trim()
+                  waitErr instanceof Error
+                    ? waitErr.message
+                    : 'Unable to read completion status from coordinator runtime.'
 
                 createChatReply(
                   db,

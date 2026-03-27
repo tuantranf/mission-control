@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase, db_helpers } from '@/lib/db'
-import { runOpenClaw } from '@/lib/command'
+import { gatewaySessionSend } from '@/lib/gateway-rpc'
 import { requireRole } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 
@@ -48,16 +48,10 @@ export async function POST(
     const results = await Promise.allSettled(
       agents.map(async (agent) => {
         if (!agent.session_key) return 'skipped'
-        await runOpenClaw(
-          [
-            'gateway',
-            'sessions_send',
-            '--session',
-            agent.session_key,
-            '--message',
-            `[Task ${task.id}] ${task.title}\nFrom ${author}: ${message}`
-          ],
-          { timeoutMs: 10000 }
+        await gatewaySessionSend(
+          agent.session_key,
+          `[Task ${task.id}] ${task.title}\nFrom ${author}: ${message}`,
+          10000
         )
         db_helpers.createNotification(
           agent.name,

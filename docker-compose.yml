@@ -1,4 +1,16 @@
 services:
+    # OpenClaw Gateway sidecar
+  # openclaw-gateway:
+  #   image: ghcr.io/openclaw/openclaw:latest
+  #   container_name: openclaw-gateway
+  #   ports:
+  #     - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+  #   volumes:
+  #     - openclaw-data:/root/.openclaw
+  #   networks:
+  #     - mc-net
+  #   restart: unless-stopped
+
   mission-control:
     build: .
     container_name: mission-control
@@ -19,7 +31,7 @@ services:
       # - NEXT_PUBLIC_GATEWAY_HOST=${NEXT_PUBLIC_GATEWAY_HOST:-}
       # - NEXT_PUBLIC_GATEWAY_PORT=${NEXT_PUBLIC_GATEWAY_PORT:-18789}
       # Set to true if running without an OpenClaw gateway (standalone dashboard mode).
-      # - NEXT_PUBLIC_GATEWAY_OPTIONAL=true
+      - NEXT_PUBLIC_GATEWAY_OPTIONAL=true
     env_file:
       - path: .env
         required: false
@@ -67,6 +79,7 @@ services:
 
 volumes:
   mc-data:
+  openclaw-data:
 
 networks:
   mc-net:
