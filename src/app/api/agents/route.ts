@@ -8,7 +8,7 @@ import { requireRole } from '@/lib/auth';
 import { mutationLimiter } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 import { validateBody, createAgentSchema } from '@/lib/validation';
-import { runOpenClaw } from '@/lib/command';
+import { callGatewayRpc } from '@/lib/gateway-rpc';
 import { config as appConfig } from '@/lib/config';
 import { resolveWithin } from '@/lib/paths';
 import path from 'node:path';
@@ -223,10 +223,7 @@ export async function POST(request: NextRequest) {
         : resolveWithin(appConfig.openclawStateDir, path.join('workspaces', openclawId));
 
       try {
-        await runOpenClaw(
-          ['agents', 'add', openclawId, '--workspace', workspacePath, '--non-interactive'],
-          { timeoutMs: 20000 }
-        );
+        await callGatewayRpc('agents.create', { id: openclawId, workspace: workspacePath }, 20000);
       } catch (provisionError: any) {
         logger.error({ err: provisionError, openclawId, workspacePath }, 'OpenClaw workspace provisioning failed');
         return NextResponse.json(
