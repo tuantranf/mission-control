@@ -416,6 +416,8 @@ export async function gatewayAgentInvoke(
     idempotencyKey: string
     deliver?: boolean
     attachments?: unknown[]
+    /** Optional system prompt hint passed to the agent (schema-valid field in AgentParamsSchema). */
+    extraSystemPrompt?: string
   },
   options?: {
     expectFinal?: boolean
