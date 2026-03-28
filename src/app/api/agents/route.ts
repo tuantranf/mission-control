@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         : resolveWithin(appConfig.openclawStateDir, path.join('workspaces', openclawId));
 
       try {
-        await callGatewayRpc('agents.create', { id: openclawId, workspace: workspacePath }, 20000);
+        await callGatewayRpc('agents.create', { name: openclawId, workspace: workspacePath }, 20000);
       } catch (provisionError: any) {
         logger.error({ err: provisionError, openclawId, workspacePath }, 'OpenClaw workspace provisioning failed');
         return NextResponse.json(

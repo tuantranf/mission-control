@@ -62,7 +62,6 @@ interface GatewayFrame {
   method?: string
   params?: unknown
   payload?: unknown
-  result?: unknown
   ok?: boolean
   error?: { message?: string; code?: string; [key: string]: unknown }
 }
@@ -274,8 +273,7 @@ function awaitResponse<T>(
         return
       }
 
-      // Prefer `payload` field (v3 pattern), fall back to `result` (legacy)
-      resolve((frame.payload ?? frame.result) as T)
+      resolve(frame.payload as T)
     }
 
     const onError = (err: Error) => {
@@ -414,9 +412,9 @@ export async function gatewayAgentInvoke(
   params: {
     message: string
     agentId?: string
-    idempotencyKey?: string
+    /** Required by gateway AgentParamsSchema (NonEmptyString). */
+    idempotencyKey: string
     deliver?: boolean
-    model?: string
     attachments?: unknown[]
   },
   options?: {
@@ -478,7 +476,7 @@ export async function gatewayAgentInvoke(
           return
         }
 
-        const payload = f.payload ?? f.result
+        const payload = f.payload
         lastPayload = payload
 
         // Check for final status

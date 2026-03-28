@@ -763,15 +763,19 @@ export async function dispatchAssignedTasks(): Promise<{ ok: boolean; message: s
         // Step 1: Invoke via gateway (new session)
         const gatewayAgentId = resolveGatewayAgentId(task)
         const dispatchModel = classifyTaskModel(task)
-        const invokeParams: { message: string; agentId: string; idempotencyKey: string; deliver: boolean; model?: string } = {
+        const invokeParams: { message: string; agentId: string; idempotencyKey: string; deliver: boolean; extraSystemPrompt?: string } = {
           message: prompt,
           agentId: gatewayAgentId,
           idempotencyKey: `task-dispatch-${task.id}-${Date.now()}`,
           deliver: false,
         }
         // Route to appropriate model tier based on task complexity.
-        // null = no override, agent uses its own configured default model.
-        if (dispatchModel) invokeParams.model = dispatchModel
+        // The gateway AgentParamsSchema does not support a per-invocation `model` field.
+        // Instead, hint the desired model via extraSystemPrompt so the agent config
+        // or session defaults take precedence while the hint is still visible.
+        if (dispatchModel) {
+          invokeParams.extraSystemPrompt = `Preferred model tier for this task: ${dispatchModel}`
+        }
 
         // Use --expect-final to block until the agent completes and returns the full
         // response payload (result.payloads[0].text). The two-step agent → agent.wait
