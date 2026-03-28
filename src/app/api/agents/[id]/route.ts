@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth'
 import { writeAgentToConfig, enrichAgentConfigFromWorkspace, removeAgentFromConfig } from '@/lib/agent-sync'
 import { eventBus } from '@/lib/event-bus'
 import { logger } from '@/lib/logger'
-import { runOpenClaw } from '@/lib/command'
+import { callGatewayRpc } from '@/lib/gateway-rpc'
 
 /**
  * GET /api/agents/[id] - Get a single agent by ID or name
@@ -234,7 +234,7 @@ export async function DELETE(
           .replace(/[^a-z0-9._-]+/g, '-')
           .replace(/^-+|-+$/g, '') || agent.name
       try {
-        await runOpenClaw(['agents', 'delete', openclawId, '--force'], { timeoutMs: 30000 })
+        await callGatewayRpc('agents.delete', { agentId: openclawId, deleteFiles: true }, 30000)
       } catch (err: any) {
         logger.error({ err, openclawId, agent: agent.name }, 'Failed to remove OpenClaw agent/workspace')
         return NextResponse.json(

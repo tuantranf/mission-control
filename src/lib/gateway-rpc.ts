@@ -9,25 +9,25 @@
  * sends the method RPC, receives the response, and closes. No connection pooling.
  */
 
-import WebSocket from 'ws'
-import { randomUUID } from 'node:crypto'
-import { config } from '@/lib/config'
-import { getDetectedGatewayToken } from '@/lib/gateway-runtime'
-import { buildGatewayWebSocketUrl } from '@/lib/gateway-url'
-import { logger } from '@/lib/logger'
+import WebSocket from 'ws';
+import { randomUUID } from 'node:crypto';
+import { config } from '@/lib/config';
+import { getDetectedGatewayToken } from '@/lib/gateway-runtime';
+import { buildGatewayWebSocketUrl } from '@/lib/gateway-url';
+import { logger } from '@/lib/logger';
 
-const PROTOCOL_VERSION = 3
-const CLIENT_ID = 'openclaw-control-ui'
-const CLIENT_MODE = 'ui'
-const CLIENT_VERSION = '1.0.0'
+const PROTOCOL_VERSION = 3;
+const CLIENT_ID = 'openclaw-control-ui';
+const CLIENT_MODE = 'ui';
+const CLIENT_VERSION = '1.0.0';
 const GATEWAY_OPERATOR_SCOPES = [
   'operator.read',
   'operator.admin',
   'operator.approvals',
   'operator.pairing',
-]
+];
 
-const DEFAULT_TIMEOUT_MS = 10_000
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,11 +35,11 @@ const DEFAULT_TIMEOUT_MS = 10_000
 
 export interface GatewayRpcConfig {
   /** WebSocket URL (ws:// or wss://) */
-  url: string
+  url: string;
   /** Auth token for query parameter and connect RPC auth.token field */
-  token: string
+  token: string;
   /** Allow insecure TLS (self-signed certs) */
-  allowInsecureTls?: boolean
+  allowInsecureTls?: boolean;
 }
 
 export class GatewayRpcError extends Error {
@@ -48,22 +48,22 @@ export class GatewayRpcError extends Error {
     public readonly code: string,
     /** HTTP status code to propagate to the caller */
     public readonly statusCode: number,
-    public readonly details?: unknown
+    public readonly details?: unknown,
   ) {
-    super(message)
-    this.name = 'GatewayRpcError'
+    super(message);
+    this.name = 'GatewayRpcError';
   }
 }
 
 interface GatewayFrame {
-  type: 'event' | 'req' | 'res'
-  id?: string
-  event?: string
-  method?: string
-  params?: unknown
-  payload?: unknown
-  ok?: boolean
-  error?: { message?: string; code?: string; [key: string]: unknown }
+  type: 'event' | 'req' | 'res';
+  id?: string;
+  event?: string;
+  method?: string;
+  params?: unknown;
+  payload?: unknown;
+  ok?: boolean;
+  error?: { message?: string; code?: string; [key: string]: unknown };
 }
 
 // ---------------------------------------------------------------------------
@@ -72,21 +72,21 @@ interface GatewayFrame {
 
 function appendTokenToUrl(url: string, token: string): string {
   try {
-    const parsed = new URL(url)
-    if (token) parsed.searchParams.set('token', token)
-    return parsed.toString()
+    const parsed = new URL(url);
+    if (token) parsed.searchParams.set('token', token);
+    return parsed.toString();
   } catch {
-    return url
+    return url;
   }
 }
 
 function redactUrl(url: string): string {
   try {
-    const parsed = new URL(url)
-    parsed.search = ''
-    return parsed.toString()
+    const parsed = new URL(url);
+    parsed.search = '';
+    return parsed.toString();
   } catch {
-    return url
+    return url;
   }
 }
 
@@ -100,19 +100,21 @@ function redactUrl(url: string): string {
  */
 function buildControlUiOrigin(url: string): string | null {
   try {
-    const parsed = new URL(url)
-    let originScheme: string
+    const parsed = new URL(url);
+    let originScheme: string;
     if (parsed.protocol === 'ws:' || parsed.protocol === 'http:') {
-      originScheme = 'http'
+      originScheme = 'http';
     } else if (parsed.protocol === 'wss:' || parsed.protocol === 'https:') {
-      originScheme = 'https'
+      originScheme = 'https';
     } else {
-      return null
+      return null;
     }
-    const host = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname
-    return `${originScheme}://${host}`
+    const host = parsed.port
+      ? `${parsed.hostname}:${parsed.port}`
+      : parsed.hostname;
+    return `${originScheme}://${host}`;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -122,44 +124,48 @@ function buildControlUiOrigin(url: string): string | null {
 
 /** Resolve the primary gateway WebSocket URL and token from config/env. */
 function resolvePrimaryGatewayConfig(): GatewayRpcConfig {
-  const token = getDetectedGatewayToken()
+  const token = getDetectedGatewayToken();
   const url = buildGatewayWebSocketUrl({
     host: config.gatewayHost,
     port: config.gatewayPort,
-  })
-  return { url, token }
+  });
+  return { url, token };
 }
 
 // ---------------------------------------------------------------------------
 // WebSocket helpers
 // ---------------------------------------------------------------------------
 
-function openWebSocket(url: string, allowInsecureTls: boolean, origin?: string): Promise<WebSocket> {
+function openWebSocket(
+  url: string,
+  allowInsecureTls: boolean,
+  origin?: string,
+): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const wsOptions: WebSocket.ClientOptions = {
       rejectUnauthorized: !allowInsecureTls,
-    }
+    };
     if (origin) {
-      wsOptions.headers = { Origin: origin }
+      wsOptions.headers = { Origin: origin };
     }
-    const ws = new WebSocket(url, wsOptions)
+    const ws = new WebSocket(url, wsOptions);
 
     const onOpen = () => {
-      cleanup()
-      resolve(ws)
-    }
+      cleanup();
+      resolve(ws);
+    };
     const onError = (err: Error) => {
-      cleanup()
-      reject(err)
-    }
+      cleanup();
+      reject(err);
+    };
     const cleanup = () => {
-      ws.off('open', onOpen)
-      ws.off('error', onError)
-    }
+      ws.off('open', onOpen);
+      ws.off('error', onError);
+    };
 
-    ws.once('open', onOpen)
-    ws.once('error', onError)
-  })
+    ws.once('open', onOpen);
+    ws.once('error', onError);
+  });
 }
 
 /**
@@ -170,48 +176,54 @@ function openWebSocket(url: string, allowInsecureTls: boolean, origin?: string):
 function maybeReceiveChallenge(ws: WebSocket): Promise<string | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
-      cleanup()
-      resolve(null)
-    }, 2000)
+      cleanup();
+      resolve(null);
+    }, 10000);
 
     const onMessage = (data: WebSocket.RawData) => {
-      cleanup()
+      cleanup();
       try {
-        const frame = JSON.parse(data.toString()) as GatewayFrame
+        const frame = JSON.parse(data.toString()) as GatewayFrame;
         if (frame.type === 'event' && frame.event === 'connect.challenge') {
           const nonce =
-            frame.payload && typeof frame.payload === 'object' && 'nonce' in (frame.payload as object)
+            frame.payload &&
+            typeof frame.payload === 'object' &&
+            'nonce' in (frame.payload as object)
               ? String((frame.payload as { nonce: unknown }).nonce ?? '')
-              : ''
-          resolve(nonce.trim() || null)
+              : '';
+          resolve(nonce.trim() || null);
         } else {
           // Unexpected first frame — log and continue without nonce
           logger.debug(
             { type: frame.type, event: frame.event },
-            'gateway.rpc: unexpected first frame (expected connect.challenge)'
-          )
-          resolve(null)
+            'gateway.rpc: unexpected first frame (expected connect.challenge)',
+          );
+          resolve(null);
         }
       } catch {
-        resolve(null)
+        resolve(null);
       }
-    }
+    };
 
     const cleanup = () => {
-      clearTimeout(timer)
-      ws.off('message', onMessage)
-    }
+      clearTimeout(timer);
+      ws.off('message', onMessage);
+    };
 
-    ws.once('message', onMessage)
-  })
+    ws.once('message', onMessage);
+  });
 }
 
 /**
  * Send the connect RPC and wait for its response.
  * Uses control UI mode (token-only, no device identity).
  */
-function performHandshake(ws: WebSocket, token: string, nonce: string | null): Promise<void> {
-  const connectId = randomUUID()
+function performHandshake(
+  ws: WebSocket,
+  token: string,
+  nonce: string | null,
+): Promise<void> {
+  const connectId = randomUUID();
   const params: Record<string, unknown> = {
     minProtocol: PROTOCOL_VERSION,
     maxProtocol: PROTOCOL_VERSION,
@@ -223,24 +235,33 @@ function performHandshake(ws: WebSocket, token: string, nonce: string | null): P
       platform: 'node',
       mode: CLIENT_MODE,
     },
-  }
+  };
   if (token) {
-    params.auth = { token }
+    params.auth = { token };
   }
   // Control UI mode: no device field
 
-  return awaitResponse(ws, connectId, { type: 'req', id: connectId, method: 'connect', params })
-    .then(() => undefined)
+  return awaitResponse(ws, connectId, {
+    type: 'req',
+    id: connectId,
+    method: 'connect',
+    params,
+  }).then(() => undefined);
 }
 
 /**
  * Send an RPC request frame and wait for the matching `res` frame.
  * Matches Python `_send_request` + `_await_response`.
  */
-function sendRpcRequest<T>(ws: WebSocket, method: string, params: unknown, requestId: string): Promise<T> {
-  const frame = { type: 'req', id: requestId, method, params: params ?? {} }
-  ws.send(JSON.stringify(frame))
-  return awaitResponse<T>(ws, requestId)
+function sendRpcRequest<T>(
+  ws: WebSocket,
+  method: string,
+  params: unknown,
+  requestId: string,
+): Promise<T> {
+  const frame = { type: 'req', id: requestId, method, params: params ?? {} };
+  ws.send(JSON.stringify(frame));
+  return awaitResponse<T>(ws, requestId);
 }
 
 /**
@@ -250,56 +271,62 @@ function sendRpcRequest<T>(ws: WebSocket, method: string, params: unknown, reque
 function awaitResponse<T>(
   ws: WebSocket,
   requestId: string,
-  frameToSend?: object
+  frameToSend?: object,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const onMessage = (data: WebSocket.RawData) => {
-      let frame: GatewayFrame
+      let frame: GatewayFrame;
       try {
-        frame = JSON.parse(data.toString()) as GatewayFrame
+        frame = JSON.parse(data.toString()) as GatewayFrame;
       } catch {
-        return // Ignore malformed frames
+        return; // Ignore malformed frames
       }
 
       // Match by request ID
-      if (frame.id !== requestId) return
+      if (frame.id !== requestId) return;
 
-      cleanup()
+      cleanup();
 
       // Gateway error response
       if (frame.ok === false || frame.error) {
-        const msg = (frame.error as any)?.message ?? 'Gateway RPC error'
-        reject(new GatewayRpcError(msg, 'RPC_ERROR', 502, frame.error))
-        return
+        const msg = (frame.error as any)?.message ?? 'Gateway RPC error';
+        reject(new GatewayRpcError(msg, 'RPC_ERROR', 502, frame.error));
+        return;
       }
 
-      resolve(frame.payload as T)
-    }
+      resolve(frame.payload as T);
+    };
 
     const onError = (err: Error) => {
-      cleanup()
-      reject(err)
-    }
+      cleanup();
+      reject(err);
+    };
 
     const onClose = () => {
-      cleanup()
-      reject(new GatewayRpcError('WebSocket closed before response', 'GATEWAY_CLOSED', 502))
-    }
+      cleanup();
+      reject(
+        new GatewayRpcError(
+          'WebSocket closed before response',
+          'GATEWAY_CLOSED',
+          502,
+        ),
+      );
+    };
 
     const cleanup = () => {
-      ws.off('message', onMessage)
-      ws.off('error', onError)
-      ws.off('close', onClose)
-    }
+      ws.off('message', onMessage);
+      ws.off('error', onError);
+      ws.off('close', onClose);
+    };
 
-    ws.on('message', onMessage)
-    ws.once('error', onError)
-    ws.once('close', onClose)
+    ws.on('message', onMessage);
+    ws.once('error', onError);
+    ws.once('close', onClose);
 
     if (frameToSend) {
-      ws.send(JSON.stringify(frameToSend))
+      ws.send(JSON.stringify(frameToSend));
     }
-  })
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -310,50 +337,77 @@ async function executeCall<T>(
   method: string,
   params: unknown,
   cfg: GatewayRpcConfig,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<T> {
-  const fullUrl = appendTokenToUrl(cfg.url, cfg.token)
-  const logUrl = redactUrl(cfg.url)
-  const startedAt = Date.now()
+  const fullUrl = appendTokenToUrl(cfg.url, cfg.token);
+  const logUrl = redactUrl(cfg.url);
+  const startedAt = Date.now();
 
-  logger.debug({ method, url: logUrl }, 'gateway.rpc: connecting')
+  logger.debug({ method, url: logUrl }, 'gateway.rpc: connecting');
 
-  let ws: WebSocket | undefined
+  let ws: WebSocket | undefined;
 
-  const origin = buildControlUiOrigin(cfg.url)
+  const origin = buildControlUiOrigin(cfg.url);
 
   const doCall = async (): Promise<T> => {
-    ws = await openWebSocket(fullUrl, cfg.allowInsecureTls ?? false, origin ?? undefined)
-    const nonce = await maybeReceiveChallenge(ws)
-    await performHandshake(ws, cfg.token, nonce)
-    const requestId = randomUUID()
-    return sendRpcRequest<T>(ws, method, params, requestId)
-  }
+    ws = await openWebSocket(
+      fullUrl,
+      cfg.allowInsecureTls ?? false,
+      origin ?? undefined,
+    );
+    const nonce = await maybeReceiveChallenge(ws);
+    await performHandshake(ws, cfg.token, nonce);
+    const requestId = randomUUID();
+    return sendRpcRequest<T>(ws, method, params, requestId);
+  };
 
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new GatewayRpcError(`Gateway RPC timed out after ${timeoutMs}ms`, 'GATEWAY_TIMEOUT', 502)),
-      timeoutMs
-    )
-  )
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () =>
+        reject(
+          new GatewayRpcError(
+            `Gateway RPC timed out after ${timeoutMs}ms`,
+            'GATEWAY_TIMEOUT',
+            502,
+          ),
+        ),
+      timeoutMs,
+    );
+  });
 
   try {
-    const result = await Promise.race([doCall(), timeout])
-    logger.debug({ method, url: logUrl, durationMs: Date.now() - startedAt }, 'gateway.rpc: success')
-    return result
+    const result = await Promise.race([doCall(), timeout]);
+    logger.debug(
+      { method, url: logUrl, durationMs: Date.now() - startedAt },
+      'gateway.rpc: success',
+    );
+    return result;
   } catch (err) {
-    const durationMs = Date.now() - startedAt
+    const durationMs = Date.now() - startedAt;
     if (err instanceof GatewayRpcError) {
-      logger.warn({ method, url: logUrl, code: err.code, durationMs }, 'gateway.rpc: error')
-      throw err
+      logger.warn(
+        { method, url: logUrl, code: err.code, durationMs },
+        'gateway.rpc: error',
+      );
+      throw err;
     }
     // Wrap transport errors (ECONNREFUSED, ENOTFOUND, etc.)
-    const msg = err instanceof Error ? err.message : String(err)
-    logger.error({ method, url: logUrl, err, durationMs }, 'gateway.rpc: transport error')
-    throw new GatewayRpcError(`Gateway unreachable: ${msg}`, 'GATEWAY_UNREACHABLE', 502, { originalError: msg })
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(
+      { method, url: logUrl, err, durationMs },
+      'gateway.rpc: transport error',
+    );
+    throw new GatewayRpcError(
+      `Gateway unreachable: ${msg}`,
+      'GATEWAY_UNREACHABLE',
+      502,
+      { originalError: msg },
+    );
   } finally {
+    clearTimeout(timeoutHandle!);
     if (ws && ws.readyState !== WebSocket.CLOSED) {
-      ws.close()
+      ws.close();
     }
   }
 }
@@ -373,15 +427,19 @@ export async function callGatewayRpc<T = unknown>(
   method: string,
   params: unknown,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  options?: { config?: GatewayRpcConfig }
+  options?: { config?: GatewayRpcConfig },
 ): Promise<T> {
-  const cfg = options?.config ?? resolvePrimaryGatewayConfig()
+  const cfg = options?.config ?? resolvePrimaryGatewayConfig();
 
   if (!cfg.url) {
-    throw new GatewayRpcError('Gateway URL is not configured', 'GATEWAY_NOT_CONFIGURED', 422)
+    throw new GatewayRpcError(
+      'Gateway URL is not configured',
+      'GATEWAY_NOT_CONFIGURED',
+      422,
+    );
   }
 
-  return executeCall<T>(method, params, cfg, timeoutMs)
+  return executeCall<T>(method, params, cfg, timeoutMs);
 }
 
 /**
@@ -391,14 +449,19 @@ export async function gatewaySessionSend(
   sessionKey: string,
   message: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
-  options?: { config?: GatewayRpcConfig; deliver?: boolean }
+  options?: { config?: GatewayRpcConfig; deliver?: boolean },
 ): Promise<void> {
   await callGatewayRpc(
     'chat.send',
-    { sessionKey, message, deliver: options?.deliver ?? false, idempotencyKey: randomUUID() },
+    {
+      sessionKey,
+      message,
+      deliver: options?.deliver ?? false,
+      idempotencyKey: randomUUID(),
+    },
     timeoutMs,
-    options
-  )
+    options,
+  );
 }
 
 /**
@@ -410,142 +473,203 @@ export async function gatewaySessionSend(
  */
 export async function gatewayAgentInvoke(
   params: {
-    message: string
-    agentId?: string
+    message: string;
+    agentId?: string;
     /** Required by gateway AgentParamsSchema (NonEmptyString). */
-    idempotencyKey: string
-    deliver?: boolean
-    attachments?: unknown[]
+    idempotencyKey: string;
+    deliver?: boolean;
+    attachments?: unknown[];
     /** Optional system prompt hint passed to the agent (schema-valid field in AgentParamsSchema). */
-    extraSystemPrompt?: string
+    extraSystemPrompt?: string;
   },
   options?: {
-    expectFinal?: boolean
-    timeoutMs?: number
-    config?: GatewayRpcConfig
-  }
+    expectFinal?: boolean;
+    timeoutMs?: number;
+    config?: GatewayRpcConfig;
+  },
 ): Promise<unknown> {
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const cfg = options?.config ?? resolvePrimaryGatewayConfig()
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const cfg = options?.config ?? resolvePrimaryGatewayConfig();
 
   if (!cfg.url) {
-    throw new GatewayRpcError('Gateway URL is not configured', 'GATEWAY_NOT_CONFIGURED', 422)
+    throw new GatewayRpcError(
+      'Gateway URL is not configured',
+      'GATEWAY_NOT_CONFIGURED',
+      422,
+    );
   }
 
   if (!options?.expectFinal) {
-    return executeCall('agent', params, cfg, timeoutMs)
+    return executeCall('agent', params, cfg, timeoutMs);
   }
 
   // expectFinal: agent returns an initial "accepted" response, then a final
   // response when the agent completes. Keep the connection open and wait for
   // the final frame (payload.status === 'completed' | 'error' | 'done').
-  const fullUrl = appendTokenToUrl(cfg.url, cfg.token)
-  const logUrl = redactUrl(cfg.url)
-  const startedAt = Date.now()
+  const fullUrl = appendTokenToUrl(cfg.url, cfg.token);
+  const logUrl = redactUrl(cfg.url);
+  const startedAt = Date.now();
 
-  logger.debug({ method: 'agent', url: logUrl, expectFinal: true }, 'gateway.rpc: connecting')
+  logger.debug(
+    { method: 'agent', url: logUrl, expectFinal: true },
+    'gateway.rpc: connecting',
+  );
 
-  const origin = buildControlUiOrigin(cfg.url)
-  let ws: WebSocket | undefined
+  const origin = buildControlUiOrigin(cfg.url);
+  let ws: WebSocket | undefined;
 
   const doCallFinal = async (): Promise<unknown> => {
-    ws = await openWebSocket(fullUrl, cfg.allowInsecureTls ?? false, origin ?? undefined)
-    const nonce = await maybeReceiveChallenge(ws)
-    await performHandshake(ws, cfg.token, nonce)
+    ws = await openWebSocket(
+      fullUrl,
+      cfg.allowInsecureTls ?? false,
+      origin ?? undefined,
+    );
+    const nonce = await maybeReceiveChallenge(ws);
+    await performHandshake(ws, cfg.token, nonce);
 
-    const requestId = randomUUID()
-    const frame = { type: 'req', id: requestId, method: 'agent', params: params ?? {} }
-    ws.send(JSON.stringify(frame))
+    const requestId = randomUUID();
+    const frame = {
+      type: 'req',
+      id: requestId,
+      method: 'agent',
+      params: params ?? {},
+    };
+    ws.send(JSON.stringify(frame));
 
     // Collect all responses with matching request ID until we get final status
     return new Promise<unknown>((resolve, reject) => {
-      let lastPayload: unknown = undefined
+      let lastPayload: unknown = undefined;
 
       const onMessage = (data: WebSocket.RawData) => {
-        let f: GatewayFrame
+        let f: GatewayFrame;
         try {
-          f = JSON.parse(data.toString()) as GatewayFrame
+          f = JSON.parse(data.toString()) as GatewayFrame;
         } catch {
-          return
+          return;
         }
 
-        if (f.id !== requestId) return
+        if (f.id !== requestId) return;
 
         if (f.ok === false || f.error) {
-          cleanup()
-          const msg = (f.error as any)?.message ?? 'Gateway agent error'
-          reject(new GatewayRpcError(msg, 'RPC_ERROR', 502, f.error))
-          return
+          cleanup();
+          const msg = (f.error as any)?.message ?? 'Gateway agent error';
+          reject(new GatewayRpcError(msg, 'RPC_ERROR', 502, f.error));
+          return;
         }
 
-        const payload = f.payload
-        lastPayload = payload
+        const payload = f.payload;
+        lastPayload = payload;
 
-        // Check for final status
-        const status = payload && typeof payload === 'object' ? String((payload as any).status ?? '') : ''
-        if (status === 'completed' || status === 'done' || status === 'error' || status === 'failed') {
-          cleanup()
-          resolve(payload)
-          return
+        // Check for final status.
+        // Gateway sends: "accepted" (keep waiting), "ok" (success), "error" (failure).
+        const status =
+          payload && typeof payload === 'object'
+            ? String((payload as any).status ?? '')
+            : '';
+        if (
+          status === 'ok' ||
+          status === 'completed' ||
+          status === 'done' ||
+          status === 'error' ||
+          status === 'failed'
+        ) {
+          cleanup();
+          resolve(payload);
+          return;
         }
 
-        // If it's the first response without a final status, keep waiting
-      }
+        // "accepted" or other intermediate status — keep waiting for final frame
+      };
 
       const onError = (err: Error) => {
-        cleanup()
+        cleanup();
         // If we have a last payload, consider it partial success
         if (lastPayload !== undefined) {
-          resolve(lastPayload)
+          resolve(lastPayload);
         } else {
-          reject(new GatewayRpcError(`WebSocket error: ${err.message}`, 'GATEWAY_ERROR', 502))
+          reject(
+            new GatewayRpcError(
+              `WebSocket error: ${err.message}`,
+              'GATEWAY_ERROR',
+              502,
+            ),
+          );
         }
-      }
+      };
 
       const onClose = () => {
-        cleanup()
+        cleanup();
         if (lastPayload !== undefined) {
-          resolve(lastPayload)
+          resolve(lastPayload);
         } else {
-          reject(new GatewayRpcError('WebSocket closed before final agent response', 'GATEWAY_CLOSED', 502))
+          reject(
+            new GatewayRpcError(
+              'WebSocket closed before final agent response',
+              'GATEWAY_CLOSED',
+              502,
+            ),
+          );
         }
-      }
+      };
 
       const cleanup = () => {
-        ws!.off('message', onMessage)
-        ws!.off('error', onError)
-        ws!.off('close', onClose)
-      }
+        ws!.off('message', onMessage);
+        ws!.off('error', onError);
+        ws!.off('close', onClose);
+      };
 
-      ws!.on('message', onMessage)
-      ws!.once('error', onError)
-      ws!.once('close', onClose)
-    })
-  }
+      ws!.on('message', onMessage);
+      ws!.once('error', onError);
+      ws!.once('close', onClose);
+    });
+  };
 
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new GatewayRpcError(`Gateway agent call timed out after ${timeoutMs}ms`, 'GATEWAY_TIMEOUT', 502)),
-      timeoutMs
-    )
-  )
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () =>
+        reject(
+          new GatewayRpcError(
+            `Gateway agent call timed out after ${timeoutMs}ms`,
+            'GATEWAY_TIMEOUT',
+            502,
+          ),
+        ),
+      timeoutMs,
+    );
+  });
 
   try {
-    const result = await Promise.race([doCallFinal(), timeout])
-    logger.debug({ method: 'agent', url: logUrl, durationMs: Date.now() - startedAt }, 'gateway.rpc: agent final success')
-    return result
+    const result = await Promise.race([doCallFinal(), timeout]);
+    logger.debug(
+      { method: 'agent', url: logUrl, durationMs: Date.now() - startedAt },
+      'gateway.rpc: agent final success',
+    );
+    return result;
   } catch (err) {
-    const durationMs = Date.now() - startedAt
+    const durationMs = Date.now() - startedAt;
     if (err instanceof GatewayRpcError) {
-      logger.warn({ method: 'agent', url: logUrl, code: err.code, durationMs }, 'gateway.rpc: agent error')
-      throw err
+      logger.warn(
+        { method: 'agent', url: logUrl, code: err.code, durationMs },
+        'gateway.rpc: agent error',
+      );
+      throw err;
     }
-    const msg = err instanceof Error ? err.message : String(err)
-    logger.error({ method: 'agent', url: logUrl, err, durationMs }, 'gateway.rpc: transport error')
-    throw new GatewayRpcError(`Gateway unreachable: ${msg}`, 'GATEWAY_UNREACHABLE', 502, { originalError: msg })
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(
+      { method: 'agent', url: logUrl, err, durationMs },
+      'gateway.rpc: transport error',
+    );
+    throw new GatewayRpcError(
+      `Gateway unreachable: ${msg}`,
+      'GATEWAY_UNREACHABLE',
+      502,
+      { originalError: msg },
+    );
   } finally {
+    clearTimeout(timeoutHandle!);
     if (ws && ws.readyState !== WebSocket.CLOSED) {
-      ws.close()
+      ws.close();
     }
   }
 }
