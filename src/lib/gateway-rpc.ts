@@ -178,7 +178,7 @@ function maybeReceiveChallenge(ws: WebSocket): Promise<string | null> {
     const timer = setTimeout(() => {
       cleanup();
       resolve(null);
-    }, 10000);
+    }, 10_000);
 
     const onMessage = (data: WebSocket.RawData) => {
       cleanup();
