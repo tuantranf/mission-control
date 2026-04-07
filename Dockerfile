@@ -1,4 +1,4 @@
-FROM node:22.22.0 AS base
+FROM node:22.22.0-slim AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -18,10 +18,9 @@ RUN if [ -f pnpm-lock.yaml ]; then \
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm build
+RUN --mount=type=cache,id=nextjs-cache,target=/app/.next/cache pnpm build
 
-FROM node:22.22.0 AS runtime
+FROM node:22.22.0-slim AS runtime
 
 ARG MC_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/builderz-labs/mission-control"
@@ -34,7 +33,12 @@ ENV NODE_ENV=production
 # curl, CA certs, python3, git needed for agent runtime installers (OpenClaw, Hermes)
 # procps provides `ps` and `uptime` used by system-monitor APIs
 RUN apt-get update && apt-get install -y curl ca-certificates python3 git make g++ procps --no-install-recommends && rm -rf /var/lib/apt/lists/*
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 --home /home/nextjs nextjs
+RUN npm install -g openclaw@latest
+
+# Re-apply ownership AFTER all root installs
+RUN mkdir -p /home/nextjs && chown -R nextjs:nodejs /home/nextjs
+
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
